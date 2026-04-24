@@ -7,7 +7,6 @@ import { TypingText } from "@/components/typing-text";
 import { useLang } from "@/context/lang-context";
 import { t } from "@/lib/i18n";
 import { TYPING_MAP } from "@/config/constants";
-import { API_URL } from "@/lib/api";
 
 function scrollTo(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -54,7 +53,7 @@ export function HeroSection() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => window.open(`${API_URL}/docs`, "_blank")}
+              onClick={() => window.open("/docs", "_blank")}
               className="border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-semibold text-sm px-8 py-5 rounded-lg cursor-pointer transition-all duration-300 w-full sm:w-auto"
             >
               {t("heroDocs", lang)}

@@ -1,4 +1,9 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001";
+// Empty string = use relative paths and let Next.js rewrites proxy /api/* to
+// the FastAPI backend (configured in next.config.ts via BACKEND_URL). This
+// keeps all traffic same-origin from the browser's perspective, so no CORS
+// preflights are ever involved. Set NEXT_PUBLIC_API_URL only if you want to
+// hit a different backend directly (e.g. during local dev without rewrites).
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export interface DatasetMeta {
   file: string;
