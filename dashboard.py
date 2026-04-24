@@ -25,7 +25,7 @@ SEVERITY_ORDER = ["LOW", "MEDIUM", "HIGH"]
 st.set_page_config(
     layout="wide",
     page_title="LLM Vuln Tester",
-    page_icon="🛡",
+    page_icon="security",
 )
 
 st.markdown(
