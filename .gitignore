@@ -20,7 +20,6 @@ kaggle_pkg/
 # Generated outputs
 results*.json
 report.html
-attacks_extended.json
 
 # App cache
 .streamlit_tmp/
