@@ -67,6 +67,58 @@ Generate a standalone HTML report:
 python generate_report.py --results results_*.json --out report.html
 ```
 
+## Run as API Server
+
+The framework can also run as a FastAPI service, so clients can submit their own LLM endpoint and run the full attack suite asynchronously against it.
+
+Install dependencies and start the server:
+```bash
+pip install -r requirements.txt
+uvicorn server:app --reload --port 8000
+```
+
+Interactive API docs are available at `http://localhost:8000/docs`.
+
+### Endpoints
+
+- `POST /api/start` — kick off an async test session. Returns a `session_id`.
+- `GET  /api/status/{session_id}` — poll progress, results, and summary.
+- `POST /api/stop/{session_id}` — cancel a running session.
+
+### Example: test an OpenAI-compatible endpoint
+
+```bash
+curl -X POST http://localhost:8000/api/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_url": "https://api.openai.com/v1/chat/completions",
+    "api_headers": {"Authorization": "Bearer sk-..."},
+    "model_config": {"model": "gpt-4o-mini", "temperature": 0.7}
+  }'
+```
+
+### Example: test a local Ollama instance
+
+```bash
+curl -X POST http://localhost:8000/api/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_url": "http://localhost:11434/api/chat",
+    "api_headers": {},
+    "model_config": {"model": "llama3.1", "stream": false}
+  }'
+```
+
+### Payload fields
+
+- `target_url` (required) — the client's LLM endpoint. The engine never hardcodes a target.
+- `api_headers` (required, object) — auth/custom headers forwarded on every request.
+- `model_config` (required, object) — merged into each request body. The engine adds `messages` automatically. Include whatever your provider expects (`model`, `temperature`, `stream`, etc.).
+- `custom_dataset` (optional, array) — custom attacks matching `attacks.json` schema. Defaults to the bundled `attacks.json` if omitted.
+- `request_timeout_s` (optional, float) — per-attack HTTP timeout. Default 60s.
+
+Response content is auto-detected across OpenAI, Ollama, and Anthropic schemas.
+
 ## Extended Attack Corpus
 
 The base attacks.json provides 20 hand-crafted attacks. For deep security audits, generate the extended corpus (up to 300+ variations):
