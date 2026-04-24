@@ -15,6 +15,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -49,6 +50,17 @@ class StopResponse(BaseModel):
     session_id: str
     status: str
     message: str
+
+
+class ModelsRequest(BaseModel):
+    target_url: HttpUrl
+    api_headers: dict[str, str] = Field(default_factory=dict)
+
+
+class ModelsResponse(BaseModel):
+    provider: str
+    base_url: str
+    models: list[str]
 
 
 def extract_content(data: dict[str, Any]) -> str:
@@ -248,6 +260,51 @@ async def stop_session(session_id: str) -> StopResponse:
         status=session["status"],
         message="session cancelled",
     )
+
+
+@app.post("/api/models", response_model=ModelsResponse)
+async def list_models(req: ModelsRequest) -> ModelsResponse:
+    """Probe the target host and return the list of available LLMs.
+
+    Auto-detects Ollama (`/api/tags`) and OpenAI-compatible (`/v1/models`, `/models`)
+    providers. Accepts any URL on the target host; the path is ignored.
+    """
+    parsed = urlparse(str(req.target_url))
+    base_url = f"{parsed.scheme}://{parsed.netloc}"
+
+    candidates = [
+        ("ollama", f"{base_url}/api/tags"),
+        ("openai", f"{base_url}/v1/models"),
+        ("openai", f"{base_url}/models"),
+    ]
+
+    last_error = "no compatible models endpoint responded"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for provider, url in candidates:
+            try:
+                resp = await client.get(url, headers=req.api_headers)
+            except httpx.RequestError as exc:
+                last_error = f"{url}: {exc}"
+                continue
+            if resp.status_code != 200:
+                last_error = f"{url}: http {resp.status_code}"
+                continue
+            try:
+                data = resp.json()
+            except ValueError:
+                last_error = f"{url}: non-JSON response"
+                continue
+
+            if provider == "ollama" and isinstance(data.get("models"), list):
+                names = [m.get("name") for m in data["models"] if m.get("name")]
+                if names:
+                    return ModelsResponse(provider="ollama", base_url=base_url, models=names)
+            if provider == "openai" and isinstance(data.get("data"), list):
+                names = [m.get("id") for m in data["data"] if m.get("id")]
+                if names:
+                    return ModelsResponse(provider="openai", base_url=base_url, models=names)
+
+    raise HTTPException(status_code=502, detail=last_error)
 
 
 @app.get("/api/health")
