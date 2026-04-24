@@ -1,0 +1,7 @@
+requests
+streamlit
+plotly
+pandas
+jinja2
+tqdm
+rich

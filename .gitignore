@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+env/
+venv/
+
+# Kaggle / Packaging
+Kaggle_Run.ipynb
+LLM_Vuln_Tester_Kaggle.zip
+pack_for_kaggle.py
+kaggle_pkg/
+
+# Generated outputs
+results*.json
+report.html
+attacks_extended.json
+
+# App cache
+.streamlit_tmp/

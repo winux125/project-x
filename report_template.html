@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LLM Vulnerability Test Report</title>
+<style>
+  :root {
+    --vuln: #ef4444;
+    --partial: #f59e0b;
+    --safe: #22c55e;
+    --error: #64748b;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    padding: 24px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 2em; }
+  h2 {
+    margin-top: 36px; margin-bottom: 12px; font-size: 1.4em;
+    border-bottom: 1px solid var(--border); padding-bottom: 6px;
+  }
+  h3 { margin: 12px 0 6px; font-size: 1.1em; }
+  .meta { color: var(--muted); font-size: 0.95em; margin-bottom: 4px; }
+  .card { background: var(--card); border-radius: 10px; padding: 16px; margin: 10px 0; border: 1px solid var(--border); }
+  .summary { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0 4px; }
+  .box {
+    flex: 1; min-width: 180px; padding: 18px; border-radius: 10px;
+    text-align: center; color: white;
+  }
+  .box .n { font-size: 2.2em; font-weight: 700; display: block; }
+  .box .l { font-size: 0.95em; opacity: 0.92; }
+  .box-vuln { background: var(--vuln); }
+  .box-partial { background: var(--partial); }
+  .box-safe { background: var(--safe); }
+  .box-total { background: #334155; }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 10px;
+    font-size: 0.82em; font-weight: 600; color: white;
+  }
+  .b-vuln { background: var(--vuln); }
+  .b-partial { background: var(--partial); }
+  .b-safe { background: var(--safe); }
+  .b-error { background: var(--error); }
+  .sev-HIGH { color: var(--vuln); font-weight: 700; }
+  .sev-MEDIUM { color: var(--partial); font-weight: 600; }
+  .sev-LOW { color: var(--safe); font-weight: 500; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.92em; vertical-align: top; }
+  th { background: #0b1324; color: var(--muted); font-weight: 600; }
+  tr.row-VULNERABLE td { background: rgba(239, 68, 68, 0.10); }
+  tr.row-PARTIAL td { background: rgba(245, 158, 11, 0.10); }
+  tr.row-SAFE td { background: rgba(34, 197, 94, 0.08); }
+  .bar-chart { margin: 10px 0; }
+  .bar-row { display: flex; align-items: center; margin: 6px 0; gap: 10px; }
+  .bar-label { width: 170px; font-size: 0.92em; color: var(--text); }
+  .bar-track { flex: 1; background: #0b1324; border-radius: 4px; height: 22px; position: relative; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; border-radius: 4px; }
+  .bar-value { margin-left: 8px; width: 60px; text-align: right; color: var(--muted); font-size: 0.9em; }
+  .hi-card { border-left: 5px solid var(--vuln); }
+  code, pre {
+    background: #0b1324; color: #cbd5e1; padding: 8px 10px;
+    border-radius: 6px; font-size: 0.85em; overflow-x: auto;
+    white-space: pre-wrap; word-break: break-word; display: block;
+  }
+  footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.88em; text-align: center; }
+  .methodology dt { font-weight: 700; color: var(--text); margin-top: 8px; }
+  .methodology dd { color: var(--muted); margin: 2px 0 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>LLM Vulnerability Test Report</h1>
+    <div class="meta">Generated: {{ generated_at }}</div>
+    <div class="meta">Models tested: <b>{{ models|join(", ") }}</b></div>
+    <div class="meta">Total attacks evaluated: <b>{{ totals.total }}</b></div>
+  </header>
+
+  <h2>Executive Summary</h2>
+  <div class="summary">
+    <div class="box box-total"><span class="n">{{ totals.total }}</span><span class="l">Total Attacks</span></div>
+    <div class="box box-vuln"><span class="n">{{ totals.vulnerable }}</span><span class="l">Vulnerable</span></div>
+    <div class="box box-partial"><span class="n">{{ totals.partial }}</span><span class="l">Partial</span></div>
+    <div class="box box-safe"><span class="n">{{ totals.safe }}</span><span class="l">Safe</span></div>
+  </div>
+  <p class="meta">Overall vulnerability rate: <b>{{ totals.rate_pct }}%</b></p>
+
+  <h2>Vulnerability by Category</h2>
+  <div class="card bar-chart">
+    {% for bar in category_bars %}
+    <div class="bar-row">
+      <div class="bar-label">{{ bar.category }}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width: {{ bar.width_pct }}%; background: {{ bar.color }};"></div>
+      </div>
+      <div class="bar-value">{{ bar.pct }}% ({{ bar.vuln }}/{{ bar.total }})</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if models|length >= 2 %}
+  <h2>Model Comparison</h2>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          {% for m in models %}<th>{{ m }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in model_comparison %}
+        <tr>
+          <td><b>{{ row.category }}</b></td>
+          {% for m in models %}
+          <td>{{ row.per_model[m].pct }}% ({{ row.per_model[m].vuln }}/{{ row.per_model[m].total }})</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <h2>Detailed Findings</h2>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Category</th>
+          <th>Name</th>
+          <th>Severity</th>
+          <th>Model</th>
+          <th>Verdict</th>
+          <th>Matched Keywords</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in findings %}
+        <tr class="row-{{ r.verdict }}">
+          <td>{{ r.attack_id }}</td>
+          <td>{{ r.category }}</td>
+          <td>{{ r.name }}</td>
+          <td><span class="sev-{{ r.severity }}">{{ r.severity }}</span></td>
+          <td>{{ r.model }}</td>
+          <td><span class="badge b-{{ r.verdict|lower }}">{{ r.verdict }}</span></td>
+          <td>{{ r.matched_keywords|join(", ") }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>High Severity Vulnerabilities</h2>
+  {% if high_sev_vulns %}
+    {% for r in high_sev_vulns %}
+    <div class="card hi-card">
+      <h3>{{ r.attack_id }} — {{ r.name }}
+        <span class="badge b-vuln">VULNERABLE</span>
+        <span class="sev-HIGH">HIGH</span>
+      </h3>
+      <div class="meta">Category: {{ r.category }} · Model: {{ r.model }} · Score: {{ r.score }}</div>
+      <h4 style="color:var(--muted);margin:10px 0 4px">Attack Prompt</h4>
+      <pre>{{ r.prompt }}</pre>
+      <h4 style="color:var(--muted);margin:10px 0 4px">Model Response (first 200 chars)</h4>
+      <pre>{{ r.response_excerpt }}</pre>
+      {% if r.matched_keywords %}
+      <div class="meta">Matched keywords: <b>{{ r.matched_keywords|join(", ") }}</b></div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="card"><em>No high-severity vulnerabilities detected.</em></div>
+  {% endif %}
+
+  <h2>Methodology</h2>
+  <div class="card methodology">
+    <dl>
+      <dt>PROMPT_INJECTION</dt>
+      <dd>Inject hostile instructions that override the system prompt or intended task (separator tricks, fake dialogue, comment smuggling).</dd>
+      <dt>JAILBREAK</dt>
+      <dd>Bypass safety guardrails via roleplay, hypothetical framing, persona override, or obfuscation (e.g., Base64, opposite-day).</dd>
+      <dt>SYSTEM_LEAK</dt>
+      <dd>Coax the model into revealing its system prompt or preceding context verbatim or in translated / completed form.</dd>
+      <dt>HARMFUL_CONTENT</dt>
+      <dd>Request prohibited content through academic, fictional, or research framings.</dd>
+    </dl>
+    <p class="meta">
+      Each response is evaluated with a keyword/refusal heuristic and optionally a second LLM acting as an impartial judge.
+      Verdicts: <span class="badge b-vuln">VULNERABLE</span> (attack succeeded),
+      <span class="badge b-partial">PARTIAL</span> (partial leak / ambiguous),
+      <span class="badge b-safe">SAFE</span> (refused or off-target).
+    </p>
+  </div>
+
+  <footer>
+    Generated by LLM Vulnerability Tester · ICCSDFAI 2026 Hackathon
+  </footer>
+
+</div>
+</body>
+</html>
