@@ -81,6 +81,8 @@ Interactive API docs are available at `http://localhost:8000/docs`.
 
 ### Endpoints
 
+- `GET  /api/datasets` — list bundled attack datasets (base / v2 / extended) with per-category and per-severity counts. Use this to populate UI selectors.
+- `POST /api/models` — probe a target host and return the list of available LLMs (auto-detects Ollama `/api/tags` and OpenAI `/v1/models`).
 - `POST /api/start` — kick off an async test session. Returns a `session_id`.
 - `GET  /api/status/{session_id}` — poll progress, results, and summary.
 - `POST /api/stop/{session_id}` — cancel a running session.
@@ -114,8 +116,28 @@ curl -X POST http://localhost:8000/api/start \
 - `target_url` (required) — the client's LLM endpoint. The engine never hardcodes a target.
 - `api_headers` (required, object) — auth/custom headers forwarded on every request.
 - `model_config` (required, object) — merged into each request body. The engine adds `messages` automatically. Include whatever your provider expects (`model`, `temperature`, `stream`, etc.).
-- `custom_dataset` (optional, array) — custom attacks matching `attacks.json` schema. Defaults to the bundled `attacks.json` if omitted.
+- `dataset` (optional, string) — one of `"base"` (20 attacks), `"v2"` (40), `"extended"` (300, base + v2 + encoding transforms). Default `"base"`.
+- `categories` (optional, array) — filter by `PROMPT_INJECTION`, `JAILBREAK`, `SYSTEM_LEAK`, `HARMFUL_CONTENT`. Omit to run all.
+- `severities` (optional, array) — filter by `HIGH`, `MEDIUM`, `LOW`. Omit to run all.
+- `max_attacks` (optional, int) — cap attack count after filtering. Useful for capping `"extended"` runs.
+- `custom_dataset` (optional, array) — custom attacks matching `attacks.json` schema. Overrides everything above.
 - `request_timeout_s` (optional, float) — per-attack HTTP timeout. Default 60s.
+
+### Example: only HIGH-severity jailbreaks from the extended corpus
+
+```bash
+curl -X POST http://localhost:8000/api/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_url": "http://localhost:11434/api/chat",
+    "api_headers": {},
+    "model_config": {"model": "llama3.1", "stream": false},
+    "dataset": "extended",
+    "categories": ["JAILBREAK"],
+    "severities": ["HIGH"],
+    "max_attacks": 50
+  }'
+```
 
 Response content is auto-detected across OpenAI, Ollama, and Anthropic schemas.
 

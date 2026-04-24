@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -23,7 +24,13 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from evaluator import evaluate
 
-DEFAULT_ATTACKS_PATH = Path(__file__).parent / "attacks.json"
+BASE_DIR = Path(__file__).parent
+DATASETS: dict[str, Path] = {
+    "base":     BASE_DIR / "attacks.json",
+    "v2":       BASE_DIR / "attacks_v2.json",
+    "extended": BASE_DIR / "attacks_extended.json",
+}
+KNOWN_SEVERITIES = ["HIGH", "MEDIUM", "LOW"]
 THROTTLE_SECONDS = 0.3
 
 app = FastAPI(title="LLM Vulnerability Tester API", version="1.0.0")
@@ -37,7 +44,16 @@ class StartRequest(BaseModel):
     target_url: HttpUrl
     api_headers: dict[str, str] = Field(default_factory=dict)
     model_config_: dict[str, Any] = Field(alias="model_config")
+
+    # Dataset & filters
+    dataset: str = "base"                             # "base" | "v2" | "extended"
+    categories: list[str] | None = None               # e.g. ["PROMPT_INJECTION", "JAILBREAK"]
+    severities: list[str] | None = None               # e.g. ["HIGH"]
+    max_attacks: int | None = None                    # cap attacks after filtering
+
+    # Overrides everything above
     custom_dataset: list[dict[str, Any]] | None = None
+
     request_timeout_s: float = 60.0
 
 
@@ -107,14 +123,50 @@ def build_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def load_default_attacks() -> list[dict[str, Any]]:
-    with open(DEFAULT_ATTACKS_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)["attacks"]
+def _load_dataset_file(name: str) -> dict[str, Any]:
+    path = DATASETS.get(name)
+    if path is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown dataset '{name}'. Available: {sorted(DATASETS.keys())}",
+        )
+    if not path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"dataset '{name}' not found on disk ({path.name}). Run import_attacks.py to generate it.",
+        )
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _filter_attacks(
+    attacks: list[dict[str, Any]],
+    categories: list[str] | None,
+    severities: list[str] | None,
+    max_attacks: int | None,
+) -> list[dict[str, Any]]:
+    out = attacks
+    if categories:
+        wanted = {c.upper() for c in categories}
+        out = [a for a in out if str(a.get("category", "")).upper() in wanted]
+    if severities:
+        wanted = {s.upper() for s in severities}
+        out = [a for a in out if str(a.get("severity", "MEDIUM")).upper() in wanted]
+    if max_attacks is not None and max_attacks > 0:
+        out = out[:max_attacks]
+    return out
+
+
+def resolve_dataset(req: StartRequest) -> list[dict[str, Any]]:
+    if req.custom_dataset:
+        return req.custom_dataset
+    data = _load_dataset_file(req.dataset)
+    return _filter_attacks(data["attacks"], req.categories, req.severities, req.max_attacks)
 
 
 async def run_session(session_id: str, req: StartRequest) -> None:
     session = sessions[session_id]
-    dataset = req.custom_dataset if req.custom_dataset else load_default_attacks()
+    dataset = resolve_dataset(req)
     session["progress"]["total"] = len(dataset)
     model_name = req.model_config_.get("model", "unknown")
     target_url = str(req.target_url)
@@ -204,10 +256,13 @@ def _public_session_view(session: dict[str, Any]) -> dict[str, Any]:
 async def start_session(req: StartRequest) -> StartResponse:
     session_id = str(uuid.uuid4())
 
-    try:
-        initial_total = len(req.custom_dataset) if req.custom_dataset else len(load_default_attacks())
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"failed to load default dataset: {exc}")
+    initial_dataset = resolve_dataset(req)
+    if not initial_dataset:
+        raise HTTPException(
+            status_code=400,
+            detail="dataset is empty after filtering — check categories/severities/max_attacks",
+        )
+    initial_total = len(initial_dataset)
 
     sessions[session_id] = {
         "status": "running",
@@ -260,6 +315,48 @@ async def stop_session(session_id: str) -> StopResponse:
         status=session["status"],
         message="session cancelled",
     )
+
+
+@app.get("/api/datasets")
+async def list_datasets() -> dict[str, Any]:
+    """Return metadata for every bundled attack dataset: counts, categories, severities.
+
+    Use this to populate UI selectors before calling /api/start.
+    """
+    datasets_meta: dict[str, Any] = {}
+    all_categories: set[str] = set()
+    category_descriptions: dict[str, str] = {}
+
+    for name, path in DATASETS.items():
+        if not path.exists():
+            datasets_meta[name] = {"file": path.name, "available": False}
+            continue
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        attacks = data["attacks"]
+        by_cat = Counter(a.get("category") for a in attacks)
+        by_sev = Counter(a.get("severity", "MEDIUM") for a in attacks)
+        all_categories.update(c for c in by_cat.keys() if c)
+        category_descriptions.update(data.get("categories", {}))
+
+        datasets_meta[name] = {
+            "file": path.name,
+            "available": True,
+            "version": data.get("version"),
+            "description": data.get("description"),
+            "total": len(attacks),
+            "by_category": dict(by_cat),
+            "by_severity": dict(by_sev),
+            "meta": data.get("meta"),
+        }
+
+    return {
+        "datasets": datasets_meta,
+        "categories": sorted(all_categories),
+        "category_descriptions": category_descriptions,
+        "severities": KNOWN_SEVERITIES,
+        "default_dataset": "base",
+    }
 
 
 @app.post("/api/models", response_model=ModelsResponse)
