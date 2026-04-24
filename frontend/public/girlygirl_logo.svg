@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 240" width="960" height="240">
+  <rect width="960" height="240" fill="#ffffff"/>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@800&amp;display=swap');
+    .wm { font-family: 'Manrope', 'Arial Black', Arial, sans-serif; }
+  </style>
+  <text
+    class="wm"
+    x="480"
+    y="170"
+    text-anchor="middle"
+    font-weight="800"
+    font-size="128"
+    letter-spacing="-5"
+    fill="#E91E8C">girlygirl</text>
+</svg>
