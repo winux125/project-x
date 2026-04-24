@@ -13,9 +13,9 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KazPunct - Kazakh Punctuation Restoration | GirlyGirl",
+  title: "LLM Vuln Tester — automated LLM red-team suite",
   description:
-    "AI-powered punctuation restoration for Kazakh language. Built by team GirlyGirl at Freedom Labs Hackathon.",
+    "Async SaaS API that runs prompt-injection, jailbreak, system-leak, and harmful-content attacks against any LLM endpoint.",
 };
 
 export default function RootLayout({

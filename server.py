@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from evaluator import evaluate
@@ -34,6 +35,14 @@ KNOWN_SEVERITIES = ["HIGH", "MEDIUM", "LOW"]
 THROTTLE_SECONDS = 0.3
 
 app = FastAPI(title="LLM Vulnerability Tester API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 sessions: dict[str, dict[str, Any]] = {}
 

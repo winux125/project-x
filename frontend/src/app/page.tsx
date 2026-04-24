@@ -3,13 +3,10 @@
 import { GLSLHills } from "@/components/glsl-hills";
 import { Navbar } from "@/components/navbar";
 import { HeroSection } from "@/components/hero-section";
-import { DemoSection } from "@/components/demo-section";
-import { StepsSection } from "@/components/steps-section";
-import { LabelsSection } from "@/components/labels-section";
-import { MetricsSection } from "@/components/metrics-section";
-import { EvalSection } from "@/components/eval-section";
+import { RunnerSection } from "@/components/runner-section";
+import { DatasetsSection } from "@/components/datasets-section";
+import { CategoriesSection } from "@/components/categories-section";
 import { ArchitectureSection } from "@/components/architecture-section";
-import { ImprovementsSection } from "@/components/improvements-section";
 import { SiteFooter } from "@/components/site-footer";
 import { LangProvider } from "@/context/lang-context";
 import { useScrollProgress } from "@/hooks/use-scroll-progress";
@@ -37,13 +34,10 @@ export default function Home() {
         <div className="relative z-10">
           <Navbar />
           <HeroSection />
-          <DemoSection />
-          <StepsSection />
-          <LabelsSection />
-          <MetricsSection />
-          <EvalSection />
+          <RunnerSection />
+          <DatasetsSection />
+          <CategoriesSection />
           <ArchitectureSection />
-          <ImprovementsSection />
           <SiteFooter />
         </div>
       </div>
