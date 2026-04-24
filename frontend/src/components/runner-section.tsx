@@ -212,8 +212,8 @@ export function RunnerSection() {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Config panel */}
-        <FadeIn delay={100}>
-          <div className="lg:col-span-2 rounded-2xl border border-gray-200 bg-white shadow-sm p-5 sm:p-6 space-y-5">
+        <FadeIn delay={100} className="lg:col-span-2">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5 sm:p-6 space-y-5">
             <Field icon={<Globe className="w-3.5 h-3.5" />} label={t("runnerTargetUrl", lang)}>
               <input
                 value={targetUrl}
@@ -280,8 +280,8 @@ export function RunnerSection() {
         </FadeIn>
 
         {/* Filters + actions */}
-        <FadeIn delay={200}>
-          <div className="lg:col-span-3 space-y-6">
+        <FadeIn delay={200} className="lg:col-span-3">
+          <div className="space-y-6">
             <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5 sm:p-6 space-y-5">
               <Field icon={<Database className="w-3.5 h-3.5" />} label={t("runnerDataset", lang)}>
                 <div className="flex flex-wrap gap-2">
