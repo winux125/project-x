@@ -119,6 +119,32 @@ curl -X POST http://localhost:8000/api/start \
 
 Response content is auto-detected across OpenAI, Ollama, and Anthropic schemas.
 
+### Deployment
+
+**Use Railway, not Vercel.** The server spawns background `asyncio` tasks that run for minutes after `/api/start` returns. Vercel's serverless model kills the function the moment the response is sent, and each request can land on a different instance, so the in-memory `sessions` dict wouldn't survive. Railway runs a long-lived container, which this app needs.
+
+#### Railway
+
+The repo already ships with `railway.toml`, `Procfile`, and `runtime.txt`. To deploy:
+
+1. Push the repo to GitHub.
+2. At [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo** → pick this repo.
+3. Railway auto-installs `requirements.txt` and runs `uvicorn server:app --host 0.0.0.0 --port $PORT`.
+4. Click **Generate Domain** under Settings → Networking to expose a public URL.
+5. Health check: `GET https://<your-domain>/api/health` should return `{"status":"ok"}`.
+
+Alternative via CLI:
+```bash
+npm i -g @railway/cli
+railway login
+railway init
+railway up
+```
+
+#### Other container platforms
+
+The same `Procfile` works on Render, Fly.io, and Heroku. For Fly.io: `fly launch` picks up the Procfile automatically.
+
 ## Extended Attack Corpus
 
 The base attacks.json provides 20 hand-crafted attacks. For deep security audits, generate the extended corpus (up to 300+ variations):
